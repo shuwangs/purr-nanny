@@ -1,0 +1,53 @@
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+
+# Python environments, caches, and build outputs
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Local databases and SQLite sidecar files
+*.sqlite
+*.sqlite3
+*.db
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
+*.db-journal
+*.db-shm
+*.db-wal
+
+# JavaScript dependencies and logs
+node_modules/
+*.log
+
+# macOS and editor-local files
+.DS_Store
+._*
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

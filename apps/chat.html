@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Purr Nanny · shared care chat</title>
+  <link rel="stylesheet" href="/chat-assets/chat.css">
+  <script src="/chat-assets/chat.js" defer></script>
+</head>
+<body>
+  <dialog id="login-dialog" aria-labelledby="login-title">
+    <form id="login-form" class="login-form">
+      <span class="eyebrow">LOCAL DEVELOPMENT SESSION</span><h2 id="login-title">Connect to your household</h2>
+      <p>Use the separate chat password configured for your household. Service credentials stay on the server.</p>
+      <label for="login-password">Chat password</label><input id="login-password" type="password" autocomplete="current-password" required placeholder="Enter your chat password">
+      <p id="login-status" role="status"></p><button id="login-submit" type="submit">Connect securely</button>
+      <p class="hint">Model keys and the MCP service token remain on the server.</p>
+    </form>
+  </dialog>
+  <div class="workspace">
+    <aside class="sidebar" aria-label="Household and cat selection">
+      <a class="brand" href="/" aria-label="Purr Nanny home"><span class="brand-icon" aria-hidden="true">✳</span><span>Purr Nanny<small>A little care, together.</small></span></a>
+      <div class="household"><span class="eyebrow">YOUR HOUSEHOLD</span><p>One shared care record.</p></div>
+      <label class="eyebrow" for="cat-select">CHAT ABOUT</label>
+      <select id="cat-select" aria-label="Choose a cat" disabled><option value="">Loading your cats…</option></select>
+      <p class="hint" id="cat-hint">Choose a cat to keep every observation in the right record.</p>
+      <label class="eyebrow" for="recorder-select">Current recorder</label>
+      <select id="recorder-select" aria-label="Current recorder" disabled><option value="">Choose a recorder…</option></select>
+      <p class="hint">Records and follow-up updates include the recorder. Another family member may have performed the care. Queries show records from the whole household.</p>
+      <div class="sidebar-actions">
+        <button id="today-shortcut" class="secondary" disabled>Today’s care <span aria-hidden="true">↗</span></button>
+        <button id="vet-shortcut" class="secondary" disabled>Veterinary summary <span aria-hidden="true">↗</span></button>
+        <button id="new-chat" class="text-button">Start a new conversation</button>
+      </div>
+      <div class="sidebar-note"><span class="note-dot" aria-hidden="true"></span><p>Shared observations.<br>Clearer conversations with your vet.</p></div>
+      <p class="demo-label" id="environment-label">Local chat preview</p>
+    </aside>
+    <main>
+      <header class="chat-header"><div><span class="eyebrow">SHARED CARE, LESS GUESSWORK</span><h1>Your cat’s care companion</h1></div><span class="connection" id="connection">Connecting…</span></header>
+      <section id="messages" class="messages" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
+        <div class="welcome" id="welcome"><div class="welcome-mark" aria-hidden="true">✳</div><h2>How is your cat doing?</h2><p>Record a moment, check what your family has done today, or bring the story together for your vet.</p><div class="suggestions" aria-label="Conversation starters"><button data-message="What happened today?">See today’s care <span aria-hidden="true">↗</span></button><button data-message="Show the veterinary summary for the last 7 days">Prepare a vet summary <span aria-hidden="true">↗</span></button><button data-message="My cat vomited">Record an observation <span aria-hidden="true">↗</span></button></div></div>
+      </section>
+      <div class="composer-area">
+        <p id="request-status" class="request-status" role="status"></p>
+        <div class="retry-row" id="retry-row" hidden><button id="retry-message" class="secondary">Retry the same message</button><p>The same request ID is reused to avoid a duplicate record.</p></div>
+        <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Message Purr Nanny</label><textarea id="message-input" rows="2" maxlength="4000" placeholder="Tell me what happened, or ask about today’s care…" disabled></textarea><button id="send-message" type="submit" aria-label="Send message" disabled><span aria-hidden="true">↑</span></button></form>
+        <p class="composer-note">Observations, not diagnoses. For urgent concerns, contact a veterinarian directly.<span>Enter to send · Shift + Enter for a new line</span></p>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

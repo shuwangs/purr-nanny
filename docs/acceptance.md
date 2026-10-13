@@ -1,0 +1,19 @@
+# Purr Nanny acceptance record
+
+Owner C. Updated 2026-10-12. Automated local checks are evidence for local behavior only. Deployment, Alexa voice, actual host rendering and real SMS require separate observations. Record run timestamp, commit/snapshot, environment, reference time, input, output, screenshot/log and tester for each row. Use synthetic data and redact tokens, phone numbers and household identifiers.
+
+| Story | Procedure | Required outcome | Local evidence | Deployed evidence |
+|---|---|---|---|---|
+| S1 Record and clarify | Create cat; record vomiting with unknown blood/lethargy; answer follow-up using original event_id and fresh key; retry identical request; query today | Unknown is not false; dangerous answer triggers signal before questions; same event ID; one timeline entry | Passed: tests/test_c_acceptance.py | Pending |
+| S2 Patterns | Seed fixed occurrences with known and unknown meal relationship; request 7-day patterns and empty history | Evidence IDs, window, denominator and sample size retained; insufficient_data shown without invented association | Passed: tests/test_c_acceptance.py | Pending |
+| S3 Dangerous signal | Synthetic straining/little urine; retry; inspect notification result; simulate provider failure | Emergency wording before questions; no duplicate notification; failed/queued/sent accurate; provider acceptance never claimed as delivery | Passed: tests/test_c_acceptance.py | Pending |
+| S4 Shared care | Two trusted identities in same household query feeding; a third identity in another household queries same cat ID | Family sees same event/reporter; other household denied; unknown reporter labelled unknown | Passed: tests/test_c_acceptance.py | Pending |
+| S5 Vet summary | Request fixed 7-day window; compare displayed timeline and patterns to server result | Same event IDs/values, source labels and disclaimer; no diagnosis; occurrences and recording times distinct | Passed: tests/test_c_acceptance.py | Pending |
+
+Additional checks: no records; multiple cats requiring explicit cat_id; no reporter; unsupported type; timezone midnight including daylight-saving boundaries; network cancellation; malformed/unsupported schema; analysis unavailable; notification disabled/failure; unsupported UI host. A failed view must leave structured tool output usable. UI bridge tests reject messages from unrelated windows and pre-handshake results; text is rendered without HTML interpretation.
+
+Gates G0/G2/G3 remain open until the corresponding deployment and submission evidence exists. Local test completion does not close those gates.
+
+Local run 2026-10-12: `.venv/bin/python -m pytest -q` completed with 20 passed, one Starlette/httpx deprecation warning. The five-story test calls actual validated contracts and RulesBackend/SQLiteRepository; SNS uses acceptance/failure stubs, not real delivery. UI renderer/bridge assertions cover signal priority, unsafe text, initialization, source filtering, cancellation, schema failure, unknown fields and stale-result clearing. Both views were observed in the local browser host (see ui-preview.md and c-preview.png). These checks do not substitute for deployed voice or SMS testing.
+
+QA follow-up 2026-10-12: `.venv/bin/python -m pytest -q` completed with **36 passed**, one existing Starlette/httpx deprecation warning. `tests/test_qa_regressions.py` adds the PM duplicate-alert reproduction, concurrent notification claims, recovery/restart, discovery isolation, DynamoDB catalog serialization/pagination and strict event details. All five story categories also pass through the actual MCP SDK and in-process HTTP service with notification stubs. The interactive `demo.live_client` uses the same SDK against a running local endpoint. Provider ambiguity now reports `uncertain`, with explicit operator reconciliation. See `docs/qa-fixes.md`; deployed evidence remains pending.
