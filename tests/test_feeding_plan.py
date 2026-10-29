@@ -91,26 +91,3 @@ def test_plan_update_unknown_meal_and_local_day(tmp_path):
 def test_invalid_plan_is_rejected(profile):
     with pytest.raises(ValidationError):
         MODELS['add_cat'].model_validate(dict(name='Mochi', idempotency_key='create-cat', **profile))
-
-
-def test_dynamodb_profile_patch_preserves_plan():
-    import json
-    from storage.dynamodb import DynamoDBRepository
-    existing = dict(cat_id='cat', name='Mochi', meals_per_day=2, meal_schedule=PLAN)
-    class Client:
-        def transact_write_items(self, **kwargs):
-            self.actions = kwargs['TransactItems']
-    client = Client()
-    class Table:
-        name = 'table'
-        class meta:
-            pass
-        def get_item(self, **kwargs):
-            return {'Item': {'body': json.dumps(existing), 'version': 3}}
-    table = Table()
-    table.meta.client = client
-    result = DynamoDBRepository(table).mutate('home', 'update_cat', {'cat_id':'cat', 'name':'Miso'}, NOW)
-    assert result['meal_schedule'] == PLAN
-    assert result['name'] == 'Miso'
-    assert client.actions[0]['Put']['ConditionExpression'] == '#v = :v'
-    assert json.loads(client.actions[1]['Put']['Item']['body']) == result

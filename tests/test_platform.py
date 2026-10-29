@@ -6,7 +6,9 @@ import pytest
 from starlette.testclient import TestClient
 
 from server.app import build_app
-from server.backend import ReferenceBackend, DomainError
+from server.backend import DomainError
+from storage.backend import RulesBackend
+from storage.repository import SQLiteRepository
 from server.contracts import HealthEvent
 from server.identity import BearerMapping, Identity
 from server.notifications import Notifications
@@ -19,7 +21,7 @@ TOKEN = "a" * 40
 
 @pytest.fixture
 def backend(tmp_path):
-    return ReferenceBackend(tmp_path / "test.sqlite3")
+    return RulesBackend(SQLiteRepository(tmp_path / "test.sqlite3"))
 
 
 def add(backend, who=A):
@@ -37,12 +39,13 @@ def test_retry_update_restart_and_isolation(backend):
     corrected = backend.execute("log_health_event", event(cat, event_id=first["event_id"], idempotency_key="follow-up", details={"blood": None}), A, NOW)
     assert corrected["event_id"] == first["event_id"]
     assert corrected["event"]["details"]["blood"] is None
-    restarted = ReferenceBackend(backend.path)
+    restarted = RulesBackend(SQLiteRepository(backend.repository.path))
     assert len(restarted.execute("get_today", {"cat_id": cat}, A, NOW)["events"]) == 1
     with pytest.raises(DomainError, match="Cat not found"):
         restarted.execute("get_today", {"cat_id": cat}, B, NOW)
-    with pytest.raises(DomainError, match="new key"):
+    with pytest.raises(DomainError) as conflict:
         backend.execute("log_health_event", event(cat, details={"blood": True}), A, NOW)
+    assert conflict.value.code == "idempotency_conflict"
 
 
 def test_concurrent_retry(backend):
@@ -63,9 +66,6 @@ def test_timezone_and_event_boundaries(backend):
 
 @pytest.mark.parametrize("ledger_failure", [False, True])
 def test_mcp_http(backend, ledger_failure):
-    from storage.backend import RulesBackend
-    from storage.repository import SQLiteRepository
-    backend = RulesBackend(SQLiteRepository(backend.path))
     class SNS:
         calls = 0
         def publish(self, **kwargs):

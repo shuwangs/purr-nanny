@@ -15,7 +15,7 @@ class Element {
   text(){return [this.textContent,...this.children.map(e=>e.text())].join('\n');}
   async fire(type, values={}){return this.listeners[type]?.({preventDefault(){},...values});}
 }
-const ids = ['messages','message-input','cat-select','recorder-select','request-status','welcome','send-message','today-shortcut','vet-shortcut','new-chat','retry-message','retry-row','cat-hint','connection','environment-label','chat-form','login-dialog','login-form','login-password','login-submit','login-status'];
+const ids = ['echo-content','echo-empty','messages','message-input','cat-select','recorder-select','request-status','welcome','send-message','today-shortcut','vet-shortcut','new-chat','retry-message','retry-row','cat-hint','connection','environment-label','chat-form','login-dialog','login-form','login-password','login-submit','login-status'];
 const nodes = Object.fromEntries(ids.map(id=>[id,new Element('div',id)]));
 nodes.messages.append(nodes.welcome);
 let onMessage;let fetches=[];let chatAttempts=0;let messageSerial=0;let sessionAuthorized=true;
@@ -57,7 +57,8 @@ const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
   assert.ok(assistant.text().indexOf('Emergency guidance') < assistant.text().indexOf('Urgent guidance'));
   assert.ok(assistant.text().indexOf('Urgent guidance') < assistant.text().indexOf('<img'));
   assert.ok(assistant.text().indexOf('Urgent guidance') < assistant.text().indexOf('Was there blood?'));
-  const shell=assistant.children[1].children.find(n=>n.className==='card-shell'), frame=shell.children.find(n=>n.tag==='iframe');
+  assert.equal(nodes['echo-empty'].hidden,true);
+  const shell=nodes['echo-content'].children.find(n=>n.className==='card-shell'), frame=shell.children.find(n=>n.tag==='iframe');
   assert.equal(frame.src,'/apps/today.html');assert.equal(frame.attributes.sandbox,'allow-scripts');
   onMessage({source:{},data:{jsonrpc:'2.0',id:'init',method:'ui/initialize'}});assert.equal(frame.contentWindow.sent.length,0);
   onMessage({source:frame.contentWindow,data:{jsonrpc:'2.0',id:'init',method:'ui/initialize'}});assert.equal(frame.contentWindow.sent[0].result.protocolVersion,'2026-01-26');
@@ -67,7 +68,7 @@ const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
   onMessage({source:frame.contentWindow,data:{jsonrpc:'2.0',method:'ui/notifications/size-changed',params:{height:999999}}});assert.equal(frame.style.height,'10000px');
   nodes['message-input'].value='No blood';await nodes['chat-form'].fire('submit');await settle();
   assert.equal(fetches.filter(f=>f.url==='/api/chat').at(-1).body.conversation_id,'conversation-1');
-  await nodes['new-chat'].fire('click');assert.equal(nodes.messages.children.length,1);assert.equal(nodes.welcome.hidden,false);
+  await nodes['new-chat'].fire('click');assert.equal(nodes.messages.children.length,1);assert.equal(nodes.welcome.hidden,false);assert.equal(nodes['echo-content'].children.length,0);assert.equal(nodes['echo-empty'].hidden,false);
   nodes['message-input'].value='Today';await nodes['chat-form'].fire('submit');await settle();
   assert.equal(fetches.filter(f=>f.url==='/api/chat').at(-1).body.conversation_id,undefined);
   sessionAuthorized=false;await window.CatNannyChat.connect();assert.equal(nodes['login-dialog'].open,true);

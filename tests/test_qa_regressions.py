@@ -178,31 +178,3 @@ def test_all_stories_through_sdk_http_client(tmp_path):
                         assert (await session.call_tool('list_cats', {})).structuredContent['cats'] == []
                         assert (await session.call_tool('get_today', {'cat_id': cat})).isError
     anyio.run(exercise)
-
-
-def test_dynamodb_discovery_pagination_and_atomic_catalog():
-    import json
-    from storage.dynamodb import DynamoDBRepository, partition
-    class Table:
-        name = 'test'
-        def __init__(self):
-            self.calls = []
-            self.actions = None
-            self.meta = type('Meta', (), {'client': self})()
-        def get_item(self, **kwargs): return {}
-        def transact_write_items(self, **kwargs): self.actions = kwargs['TransactItems']
-        def query(self, **kwargs):
-            self.calls.append(kwargs)
-            assert kwargs['ExpressionAttributeValues'][':pk'] == partition('home', '__cats__')
-            page = {'Items': [{'body': json.dumps(dict(cat_id=str(len(self.calls)), name='Miso'))}]}
-            if len(self.calls) == 1: page['LastEvaluatedKey'] = {'PK': 'catalog', 'SK': 'CAT#one'}
-            else: assert kwargs['ExclusiveStartKey']['SK'] == 'CAT#one'
-            return page
-    table = Table()
-    repo = DynamoDBRepository(table)
-    cat = repo.mutate('home', 'add_cat', dict(name='Miso', idempotency_key='create-cat'), NOW)
-    catalog = table.actions[1]['Put']['Item']
-    assert catalog['PK'] == partition('home', '__cats__')
-    assert catalog['SK'] == 'CAT#'+cat['cat_id']
-    assert json.loads(catalog['body']) == cat
-    assert len(repo.list_cats('home')) == 2

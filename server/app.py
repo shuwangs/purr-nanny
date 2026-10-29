@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
-from server.backend import DomainError, ReferenceBackend
+from server.backend import DomainError
 from server.contracts import MODELS, DESCRIPTIONS, envelope
 from server.identity import AuthMiddleware, BearerMapping, identity
 from server.notifications import Notifications

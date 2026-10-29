@@ -1,6 +1,6 @@
 # Platform contract v1.0
 
-Owner A; B integration agreement is in b-integration.md. Machine-readable schemas: `server/contracts.py`; discover the same schemas through `tools/list`. Unknown top-level fields are rejected. Every tool uses a trusted server identity; `household_id` and timezone cannot be supplied as tool arguments. Reporter is descriptive, optional, and never establishes permissions.
+Machine-readable schemas: `server/contracts.py`; discover the same schemas through `tools/list`. Unknown top-level fields are rejected. Every tool uses a trusted server identity; `household_id` and timezone cannot be supplied as tool arguments. Reporter is descriptive, optional, and never establishes permissions.
 
 | Tool | Required input | Optional input |
 | --- | --- | --- |

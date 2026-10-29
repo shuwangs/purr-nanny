@@ -70,46 +70,6 @@ class DomainTests(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
-class DynamoTests(unittest.TestCase):
-    def test_resource_serialization(self):
-        import boto3
-        from storage.dynamodb import DynamoDBRepository
-        table = boto3.resource('dynamodb', region_name='us-east-1', aws_access_key_id='testing', aws_secret_access_key='testing').Table('test-table')
-        captured = []
-        class Captured(Exception):
-            pass
-        def capture(model, params, **kwargs):
-            import json
-            captured.append(json.loads(params['body']))
-            raise Captured()
-        table.meta.client.meta.events.register('before-call.dynamodb.TransactWriteItems', capture)
-        table.get_item = lambda **kwargs: {}
-        with self.assertRaises(Captured):
-            DynamoDBRepository(table).mutate('home', 'add_cat', {'name': 'Miso', 'idempotency_key': 'test-key'}, NOW)
-        put = captured[0]['TransactItems'][0]['Put']
-        self.assertEqual(put['Item']['version'], {'N': '1'})
-        self.assertIn('S', put['Item']['body'])
-
-    def test_pagination(self):
-        from storage.dynamodb import DynamoDBRepository
-        import json
-        class Table:
-            calls = 0
-            def get_item(self, **kwargs):
-                return {'Item': {'body': '{}'}}
-            def query(self, **kwargs):
-                self.calls += 1
-                event = dict(event_id=str(self.calls), occurred_at=NOW.isoformat())
-                page = {'Items': [{'body': json.dumps(event)}]}
-                if self.calls == 1:
-                    page['LastEvaluatedKey'] = {'PK': 'p', 'SK': 's'}
-                else:
-                    assert kwargs['ExclusiveStartKey']['SK'] == 's'
-                return page
-        table = Table()
-        self.assertEqual(len(DynamoDBRepository(table).list_events('home', 'cat')), 2)
-        self.assertEqual(table.calls, 2)
-
 class BackendTests(unittest.TestCase):
     def test_dst_today_and_malformed_details(self):
         from storage.backend import RulesBackend

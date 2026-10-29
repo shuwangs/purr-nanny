@@ -1,20 +1,19 @@
-# Architecture and ownership
+# Architecture
 
 ```mermaid
 flowchart LR
-    H[Alexa or verified simulator host] -->|authenticated MCP tools| A[Platform · A]
-    A -->|trusted household and explicit reference time| B[Rules backend · B]
-    B --> S[(Household-scoped repository)]
-    B --> R[Independent deterministic rules]
-    B -->|structured result| A
-    A --> N[SNS notification adapter]
-    A -->|same structured result| V[Today and veterinary views · C]
-    A -->|UI HTML resources| H
-    H -->|MCP Apps tool-result| V
+    Browser[Chat and Echo preview] --> Chat[Chat service :8001]
+    Chat --> Model[Demo / OpenAI / Bedrock]
+    Chat --> MCP[Authenticated MCP service :8000]
+    MCP --> Rules[Rules backend]
+    Rules --> SQLite[(SQLite care records)]
+    Rules --> Signals[Deterministic health and feeding rules]
+    Chat --> Sessions[(SQLite conversations)]
+    MCP --> SNS[Optional SNS adapter]
 ```
 
-The server resolves household identity from trusted credentials; frontend pages contain no credentials and make no backend writes. The rules backend owns selection, windows, statistics, evidence and recommended wording. Views only format returned values. Veterinary results use timeline; today results use events. Notification states come from the service and preserve the distinction between provider acceptance and recipient delivery.
+The server resolves household identity from configured credentials. The agent executes tools through MCP; views format structured results. The browser receives no model key or MCP token.
 
-apps/resources.py builds self-contained HTML, CSS and JavaScript for ui://cat-nanny/today.html and ui://cat-nanny/vet-summary.html. No CDN, external image, browser persistence or telemetry is required. The bridge initializes with the parent host, accepts structuredContent only after initialization, and handles cancellation. Official lifecycle reference: https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html . Host support and Alexa rendering require actual validation.
+The chat UI loads read-only Today and veterinary cards into the left-hand Echo-style screen. The frame bridge validates the source window and initialization handshake. A new conversation or cat selection clears the displayed card.
 
-Current runtime and deployment choices are described by A in deployment.md, and data/rule details by B in rules.md. A local SQLite implementation or simulator must not be represented as a verified AWS/Alexa deployment.
+This is a local prototype with a simulated display. Live Alexa integration, cloud deployment, production authentication, and public visitor isolation have not been completed. SQLite supports one deployed instance with persistent disk; no DynamoDB adapter is included.

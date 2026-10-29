@@ -18,9 +18,19 @@
     </form>
   </dialog>
   <div class="workspace">
-    <aside class="sidebar" aria-label="Household and cat selection">
+    <aside class="sidebar" aria-label="Echo display preview and household settings">
       <a class="brand" href="/" aria-label="Purr Nanny home"><span class="brand-icon" aria-hidden="true">✳</span><span>Purr Nanny<small>A little care, together.</small></span></a>
-      <div class="household"><span class="eyebrow">YOUR HOUSEHOLD</span><p>One shared care record.</p></div>
+      <div class="preview-heading"><span class="eyebrow">ECHO SHOW PREVIEW</span><h2>A little window into their day.</h2><p>Your care cards appear here as you chat.</p></div>
+      <div class="echo-device">
+        <div class="echo-camera" aria-hidden="true"></div>
+        <div class="echo-screen">
+          <div id="echo-empty" class="echo-empty"><span class="echo-app">✳ &nbsp; Purr Nanny</span><div class="echo-orbit" aria-hidden="true">✳</div><h3>Care, all together.</h3><p>Ask about today’s care or prepare a veterinary summary to see it on this screen.</p><span class="echo-ready">Ready for your next care moment</span></div>
+          <div id="echo-content" aria-live="polite"></div>
+        </div>
+        <div class="echo-light" aria-hidden="true"></div>
+      </div>
+      <p class="preview-caption">Echo-style display simulation · No Alexa connection</p>
+      <div class="household-controls">
       <label class="eyebrow" for="cat-select">CHAT ABOUT</label>
       <select id="cat-select" aria-label="Choose a cat" disabled><option value="">Loading your cats…</option></select>
       <p class="hint" id="cat-hint">Choose a cat to keep every observation in the right record.</p>
@@ -32,7 +42,7 @@
         <button id="vet-shortcut" class="secondary" disabled>Veterinary summary <span aria-hidden="true">↗</span></button>
         <button id="new-chat" class="text-button">Start a new conversation</button>
       </div>
-      <div class="sidebar-note"><span class="note-dot" aria-hidden="true"></span><p>Shared observations.<br>Clearer conversations with your vet.</p></div>
+      </div>
       <p class="demo-label" id="environment-label">Local chat preview</p>
     </aside>
     <main>

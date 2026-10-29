@@ -62,6 +62,11 @@
   function addCard(parent, tool, result) {
     const route = cardRoutes[tool];
     if (!route || !result || result.schema_version !== '1.0') return;
+    const display = el('echo-content');
+    if (display) {
+      for (const entry of frames.values()) clearTimeout(entry.timer);
+      frames.clear(); display.replaceChildren(); el('echo-empty').hidden = true;
+    }
     const shell = node('section', undefined, 'card-shell');
     const heading = node('div', undefined, 'card-heading');
     heading.append(node('h3', cardNames[tool]), node('span', 'Shared care record'));
@@ -71,7 +76,7 @@
     const cardStatus = node('p', 'Loading care card…', 'card-status');
     const entry = {frame, result, status:cardStatus, initialized:false, timer:null};
     frames.set(frame, entry);
-    shell.append(heading, cardStatus, frame); parent.append(shell);
+    shell.append(heading, cardStatus, frame); (display || parent).append(shell);
     // Register before navigation: initialization may arrive as soon as HTML loads.
     frame.src = route;
     entry.timer = setTimeout(() => {
@@ -196,6 +201,7 @@
     conversationId = null; pending = null;
     for (const item of frames.values()) clearTimeout(item.timer);
     frames.clear();
+    if (el('echo-content')) { el('echo-content').replaceChildren(); el('echo-empty').hidden = false; }
     for (const row of [...messages.children]) if (row.id !== 'welcome') row.remove();
     el('welcome').hidden = false; input.value = ''; status('New conversation. Saved care records stay available.');
     el('retry-row').hidden = true; controls(); input.focus();
