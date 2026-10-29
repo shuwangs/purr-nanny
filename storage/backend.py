@@ -2,7 +2,7 @@ from datetime import timedelta, timezone
 from zoneinfo import ZoneInfo
 from cat_health_signals import follow_up, red_flags, patterns, vet_summary, timestamp
 from server.backend import DomainError
-from server.contracts import envelope
+from server.mcp.contracts import envelope
 from .repository import StorageError
 from cat_health_signals.feeding import feeding_summary
 

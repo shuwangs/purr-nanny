@@ -19,7 +19,7 @@ Edit `.env`: uncomment `CAT_NANNY_CHAT_MODE=demo` for a fixed-phrase demo withou
 Terminal 1 — care service:
 
 ```sh
-.venv/bin/uvicorn server.app:create_app --factory --env-file .env --host 127.0.0.1 --port 8000
+.venv/bin/uvicorn server.mcp.app:create_app --factory --env-file .env --host 127.0.0.1 --port 8000
 ```
 
 Terminal 2 — web chat:
@@ -39,14 +39,26 @@ Restart the chat service after configuration changes. Exported shell variables o
 
 ## Code map
 
-| Directory | Purpose |
-| --- | --- |
-| `apps/` | Chat UI, Echo display, and care-card renderer |
-| `server/` | Chat agent, model adapters, authenticated MCP tools, conversations, optional SNS notifications |
-| `storage/` | SQLite persistence, validation, attribution, and rules integration |
-| `packages/cat-health-signals/` | Deterministic statistics, feeding summaries, and health signals |
-| `tests/` | Domain, transport, agent, and frontend regression tests |
-| `infra/` | MCP container and optional SNS policy example |
+```text
+purr-nanny/
+├── web/
+│   ├── chat/                 # Chat page and Echo device layout
+│   └── cards/                # Today/vet cards and MCP UI resources
+├── server/
+│   ├── mcp/                  # MCP service, client, and tool contracts
+│   ├── chat_app.py           # Chat HTTP service entry point
+│   ├── agent.py              # Tool orchestration and context handling
+│   ├── models/               # Common interface, Bedrock, OpenAI, demo
+│   └── ...                   # Contracts, identity, MCP client, notifications
+├── storage/                  # SQLite care records and conversations
+├── packages/
+│   └── cat-health-signals/   # Deterministic health and feeding rules
+├── tests/                    # Domain, API, agent, and frontend checks
+├── docs/                     # Architecture and behavior contracts
+└── infra/                    # Container and optional SNS policy
+```
+
+RAG and vector search are planned, not implemented. Add their modules when the first retrieval workflow is built; do not treat directory names as implemented capabilities.
 
 SQLite stores care data and conversations locally. A new conversation clears the visible chat, not saved care records. Public visitor isolation and a single-command full-app deployment are not implemented.
 

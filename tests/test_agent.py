@@ -4,11 +4,11 @@ import anyio
 import httpx
 import pytest
 from server.agent import Agent
-from server.app import build_app
+from server.mcp.app import build_app
 from server.chat_app import build_chat_app
-from server.conversations import Conversations
+from storage.conversations import Conversations
 from server.identity import BearerMapping, Identity
-from server.mcp_client import MCPGateway
+from server.mcp.client import MCPGateway
 from server.models import BedrockModel, ModelReply, ModelUnavailable
 from storage.backend import RulesBackend
 from storage.repository import SQLiteRepository
@@ -80,7 +80,7 @@ def test_journal_recovers_ambiguous_write_without_duplicate(tmp_path, failure):
     class Gateway:
         fail = True
         async def tools(self,bearer):
-            from server.contracts import MODELS,DESCRIPTIONS
+            from server.mcp.contracts import MODELS,DESCRIPTIONS
             return [dict(name=name,description=DESCRIPTIONS[name],inputSchema=model.model_json_schema()) for name,model in MODELS.items()]
         async def call(self,bearer,name,args):
             data = backend.execute(name,args,PRINCIPAL,NOW)
@@ -163,7 +163,7 @@ def test_provider_failure_preserves_warning_and_resumes_without_rewriting(tmp_pa
     class Gateway:
         writes=0
         async def tools(self,bearer):
-            from server.contracts import MODELS,DESCRIPTIONS
+            from server.mcp.contracts import MODELS,DESCRIPTIONS
             return [dict(name=name,description=DESCRIPTIONS[name],inputSchema=model.model_json_schema()) for name,model in MODELS.items()]
         async def call(self,bearer,name,args):
             if name.startswith('log_'): self.writes+=1
@@ -207,7 +207,7 @@ def test_model_cannot_supply_server_owned_identity_or_event_reference(tmp_path):
     cat=backend.execute('add_cat',dict(name='Mochi',idempotency_key='create-cat'),PRINCIPAL,NOW)['cat']['cat_id']
     class Gateway:
         async def tools(self,bearer):
-            from server.contracts import MODELS,DESCRIPTIONS
+            from server.mcp.contracts import MODELS,DESCRIPTIONS
             return [dict(name=name,description=DESCRIPTIONS[name],inputSchema=model.model_json_schema()) for name,model in MODELS.items()]
         async def call(self,bearer,name,args):
             assert name=='list_cats'
@@ -226,7 +226,7 @@ def test_unstated_health_details_and_time_remain_unknown(tmp_path):
     cat = backend.execute('add_cat',dict(name='Mochi',idempotency_key='create-cat'),PRINCIPAL,NOW)['cat']['cat_id']
     class Gateway:
         async def tools(self,bearer):
-            from server.contracts import MODELS,DESCRIPTIONS
+            from server.mcp.contracts import MODELS,DESCRIPTIONS
             return [dict(name=name,description=DESCRIPTIONS[name],inputSchema=model.model_json_schema()) for name,model in MODELS.items()]
         async def call(self,bearer,name,args):
             assert bearer == TOKEN
@@ -288,7 +288,7 @@ def qa_agent(tmp_path):
     cats = [backend.execute('add_cat',dict(name=name,idempotency_key=name),PRINCIPAL,NOW)['cat']['cat_id'] for name in ('Mochi','Miso')]
     class Gateway:
         async def tools(self,bearer):
-            from server.contracts import MODELS,DESCRIPTIONS
+            from server.mcp.contracts import MODELS,DESCRIPTIONS
             return [dict(name=name,description=DESCRIPTIONS[name],inputSchema=model.model_json_schema()) for name,model in MODELS.items()]
         async def call(self,bearer,name,args):
             return dict(name=name,is_error=False,structuredContent=backend.execute(name,args,PRINCIPAL,NOW))
@@ -404,7 +404,7 @@ def test_qa_enum_negation_and_conflicts(value,quote,message,expected):
 
 
 def test_current_recorder_and_care_performer_are_separate(tmp_path):
-    from server.demo_model import DemoModel
+    from server.models.demo import DemoModel
     backend,cats,store,gateway = qa_agent(tmp_path)
     app = build_chat_app(agent=Agent(store,DemoModel(),gateway,clock=lambda:NOW),
         mapping=BearerMapping({TOKEN:dict(household_id='home',timezone='America/Chicago')}),
@@ -448,7 +448,7 @@ def test_current_recorder_and_care_performer_are_separate(tmp_path):
 
 
 def test_demo_food_change_typo_prompts_and_supplements_same_event(tmp_path):
-    from server.demo_model import DemoModel
+    from server.models.demo import DemoModel
     backend,cats,store,gateway=qa_agent(tmp_path)
     session=store.create('home')
     async def exercise():
@@ -470,7 +470,7 @@ def test_demo_food_change_typo_prompts_and_supplements_same_event(tmp_path):
 
 
 def test_demo_explicit_food_transition(tmp_path):
-    from server.demo_model import DemoModel
+    from server.models.demo import DemoModel
     backend,cats,store,gateway=qa_agent(tmp_path)
     async def exercise():
         result=await Agent(store,DemoModel(),gateway,clock=lambda:NOW).chat(PRINCIPAL,TOKEN,store.create('home'),'explicit-food-change','Mochi switched food from wet food to dry food',cats[0],recorded_by='Shu')
@@ -481,7 +481,7 @@ def test_demo_explicit_food_transition(tmp_path):
 
 
 def test_demo_short_yes_no_answers_only_active_question(tmp_path):
-    from server.demo_model import DemoModel
+    from server.models.demo import DemoModel
     backend,cats,store,gateway=qa_agent(tmp_path)
     async def exercise():
         session=store.create('home')

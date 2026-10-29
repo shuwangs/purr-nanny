@@ -2,7 +2,7 @@ import asyncio
 import json
 import httpx
 import pytest
-from server.openai_model import OpenAIModel, response_input
+from server.models.openai import OpenAIModel, response_input
 from server.models import ModelUnavailable
 
 

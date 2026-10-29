@@ -12,10 +12,11 @@ dependencies = ["mcp>=1.30,<2", "boto3>=1.40,<2", "uvicorn>=0.34,<1", "python-do
 test = ["pytest>=8,<9", "httpx>=0.28,<1"]
 
 [tool.setuptools.packages.find]
-include = ["server*", "storage*", "apps*"]
+include = ["server*", "storage*", "web*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.setuptools.package-data]
-apps = ["*.css", "*.js", "*.html"]
+web = ["chat/*.css", "chat/*.js", "chat/*.html"]
+"web.cards" = ["*.css", "*.js"]

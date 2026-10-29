@@ -3,8 +3,8 @@ import json
 import pytest
 from pydantic import ValidationError
 from starlette.testclient import TestClient
-from server.app import build_app
-from server.contracts import MODELS
+from server.mcp.app import build_app
+from server.mcp.contracts import MODELS
 from server.identity import BearerMapping
 from storage.backend import RulesBackend
 from storage.repository import SQLiteRepository

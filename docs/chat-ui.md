@@ -1,6 +1,6 @@
 # Chat and Echo display
 
-`apps/chat.html`, `chat.css`, and `chat.js` provide the browser UI served by `server.chat_app`.
+`web/chat/chat.html`, `chat.css`, and `chat.js` provide the browser UI served by `server.chat_app`.
 
 Desktop: an Echo-style screen and household selectors occupy the left panel; conversation, safety guidance, follow-up prompts, and composer occupy the right. On narrow screens the display stacks above chat.
 

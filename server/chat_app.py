@@ -15,15 +15,16 @@ from starlette.responses import JSONResponse, HTMLResponse
 from starlette.routing import Route, Mount
 from starlette.staticfiles import StaticFiles
 
-from apps.resources import resource_html
+from web.cards.resources import resource_html
+import web
 from server.agent import Agent
 from server.backend import DomainError
-from server.conversations import Conversations
+from storage.conversations import Conversations
 from server.identity import BearerMapping, identity
-from server.mcp_client import MCPGateway
+from server.mcp.client import MCPGateway
 from server.models import BedrockModel, UnconfiguredModel
-from server.demo_model import DemoModel
-from server.openai_model import OpenAIModel
+from server.models.demo import DemoModel
+from server.models.openai import OpenAIModel
 
 bearer_context = ContextVar('chat_mcp_bearer')
 
@@ -55,7 +56,7 @@ def build_chat_app(*, agent, mapping, chat_password, mcp_token, allowed_hosts=No
     if principal is None:
         raise ValueError("Configured chat MCP token must match the server token mapping")
     cookie_sessions = {}
-    root = Path(__file__).resolve().parents[1] / 'apps'
+    root = Path(web.__file__).resolve().parent / 'chat'
 
     def error(code, message, status=400):
         return JSONResponse({'error':{'code':code,'message':message}},status_code=status)

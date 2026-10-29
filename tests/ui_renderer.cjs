@@ -13,7 +13,7 @@ const parent = {postMessage: m => messages.push(m)};
 let listener;
 const window = {parent, addEventListener: (type, fn) => listener = fn};
 const document = {body:{dataset:{view:'vet-summary'}}, getElementById:() => root, createElement:tag => new Element(tag)};
-vm.runInNewContext(fs.readFileSync('apps/view.js', 'utf8'), {window, document});
+vm.runInNewContext(fs.readFileSync('web/cards/view.js', 'utf8'), {window, document});
 const fixture = {schema_version:'1.0', analysis_status:'evaluated', cat:{name:'<img src=x onerror=alert(1)>'}, timeline:[{event_id:'seed-1', source:'seed', event_type:'feeding', occurred_at:'2026-10-12T17:00:00Z', details:{amount:null}}], patterns:[{pattern_id:'meal',status:'insufficient_data',denominator:0,sample_size:0}], red_flags:[{level:'urgent',rule_id:'second',recommended_wording:'Urgent guidance'}, {level:'emergency',rule_id:'first',recommended_wording:'Emergency guidance'}], follow_up:[{question:'Which meal?'}], notification_status:{state:'sent'}};
 const deliver = (data, source=parent) => listener({source, data:{jsonrpc:'2.0', ...data}});
 assert.equal(messages[0].method, 'ui/initialize');

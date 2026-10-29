@@ -16,10 +16,10 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 
 from server.backend import DomainError
-from server.contracts import MODELS, DESCRIPTIONS, envelope
+from server.mcp.contracts import MODELS, DESCRIPTIONS, envelope
 from server.identity import AuthMiddleware, BearerMapping, identity
 from server.notifications import Notifications
-from apps.resources import RESOURCES, MIME_TYPE, resource_html
+from web.cards.resources import RESOURCES, MIME_TYPE, resource_html
 
 log = logging.getLogger("cat_nanny.platform")
 

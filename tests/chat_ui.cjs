@@ -34,7 +34,7 @@ const fetch = async (url, options) => {
 };
 const window={addEventListener:(type,fn)=>onMessage=fn};
 function Option(text,value){const n=new Element('option');n.textContent=text;n.value=value;return n;}
-vm.runInNewContext(fs.readFileSync('apps/chat.js','utf8'),{window,document,Option,fetch,AbortController,crypto:{randomUUID:()=>`request-${++messageSerial}`},setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id)});
+vm.runInNewContext(fs.readFileSync('web/chat/chat.js','utf8'),{window,document,Option,fetch,AbortController,crypto:{randomUUID:()=>`request-${++messageSerial}`},setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id)});
 const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
 (async()=>{
   await settle();assert.equal(nodes.connection.textContent,'Ready');assert.equal(nodes['cat-select'].value,'miso');

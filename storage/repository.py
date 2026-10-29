@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS b_retries(household TEXT, key TEXT, request TEXT, res
 
     def mutate(self, household, tool, args, now):
         from .validation import validate_details
-        from server.contracts import profile_changes
+        from server.mcp.contracts import profile_changes
         if tool.startswith('log_'):
             validate_details(args['event_type'], args.get('details', {}))
         now = timestamp(now).astimezone(timezone.utc)

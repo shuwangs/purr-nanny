@@ -1,5 +1,5 @@
 import subprocess
-from apps.resources import MIME_TYPE, RESOURCES, resource_html
+from web.cards.resources import MIME_TYPE, RESOURCES, resource_html
 import pytest
 
 

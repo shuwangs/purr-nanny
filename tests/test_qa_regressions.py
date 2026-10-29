@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
-from server.contracts import MODELS
+from server.mcp.contracts import MODELS
 from server.identity import Identity
 from server.notifications import Notifications
 from storage.backend import RulesBackend
@@ -130,7 +130,7 @@ def test_all_stories_through_sdk_http_client(tmp_path):
     import httpx
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
-    from server.app import build_app
+    from server.mcp.app import build_app
     from server.identity import BearerMapping
     sns = SNS()
     token, other_token = 'a'*40, 'b'*40

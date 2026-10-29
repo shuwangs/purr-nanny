@@ -5,11 +5,11 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from starlette.testclient import TestClient
 
-from server.app import build_app
+from server.mcp.app import build_app
 from server.backend import DomainError
 from storage.backend import RulesBackend
 from storage.repository import SQLiteRepository
-from server.contracts import HealthEvent
+from server.mcp.contracts import HealthEvent
 from server.identity import BearerMapping, Identity
 from server.notifications import Notifications
 
@@ -141,7 +141,7 @@ def test_notification_deduplication_and_failure(tmp_path, failure):
 
 
 def test_startup_requires_identity_and_blocks_unconfigured_production(monkeypatch, tmp_path):
-    from server.app import create_app
+    from server.mcp.app import create_app
     monkeypatch.setenv("CAT_NANNY_DB", str(tmp_path / "startup.sqlite3"))
     monkeypatch.delenv("CAT_NANNY_TOKEN_MAP", raising=False)
     with pytest.raises(ValueError, match="anonymous access"):

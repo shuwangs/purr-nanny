@@ -4,7 +4,7 @@ import pytest
 from storage import SQLiteRepository
 from storage.backend import RulesBackend
 from server.backend import DomainError
-from server.contracts import MODELS
+from server.mcp.contracts import MODELS
 from server.identity import Identity
 from server.notifications import Notifications
 

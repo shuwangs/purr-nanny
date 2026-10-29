@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
-from server.contracts import MODELS
+from server.mcp.contracts import MODELS
 from server.identity import Identity
 from storage.backend import RulesBackend
 from storage.repository import SQLiteRepository

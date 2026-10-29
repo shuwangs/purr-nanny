@@ -1,6 +1,6 @@
 # Chat API handoff for C (A owns server implementation)
 
-Development entry: `server.chat_app:create_app`, separate ASGI server port 8001; MCP server continues on 8000. JSON requests require the HttpOnly chat cookie. The server resolves CAT_NANNY_CHAT_MCP_TOKEN against the existing trusted household/timezone mapping. No anonymous writes or model-defined household identity. C owns apps/chat* assets; A will serve apps/chat.html at / when available. Browser assets must not contain embedded bearer tokens; ask for the independent chat password and clear the input after login. Do not call Bedrock/OpenAI from the browser.
+Development entry: `server.chat_app:create_app`, separate ASGI server port 8001; MCP server continues on 8000. JSON requests require the HttpOnly chat cookie. The server resolves CAT_NANNY_CHAT_MCP_TOKEN against the existing trusted household/timezone mapping. No anonymous writes or model-defined household identity. C owns web/chat/* assets; A will serve web/chat/chat.html at / when available. Browser assets must not contain embedded bearer tokens; ask for the independent chat password and clear the input after login. Do not call Bedrock/OpenAI from the browser.
 
 - POST /api/chat/sessions, body {} → {schema_version:'1.0', conversation_id}
 - GET /api/chat/sessions/{conversation_id} → {schema_version,conversation_id,messages:[{message_id,role,text,status?}],pending_follow_up,tool_results}
