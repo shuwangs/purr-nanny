@@ -17,6 +17,18 @@
       <p class="hint">Model keys and the MCP service token remain on the server.</p>
     </form>
   </dialog>
+  <dialog id="pet-dialog" aria-labelledby="pet-title">
+    <form id="pet-form" class="login-form">
+      <span class="eyebrow">YOUR HOUSEHOLD</span><h2 id="pet-title">Add a new pet</h2>
+      <p>Create a cat profile to start keeping their care in one place.</p>
+      <label for="pet-name">Pet name <span aria-hidden="true">*</span></label>
+      <input id="pet-name" name="name" maxlength="80" required placeholder="e.g. Miso" autocomplete="off">
+      <label for="pet-meals">Meals per day <span class="optional">(optional)</span></label>
+      <input id="pet-meals" name="meals_per_day" type="number" min="1" max="12" step="1" placeholder="e.g. 2">
+      <p id="pet-status" role="status" aria-live="polite"></p>
+      <div class="pet-form-actions"><button id="pet-cancel" class="secondary" type="button">Cancel</button><button id="pet-submit" type="submit">Add pet</button></div>
+    </form>
+  </dialog>
   <div class="workspace">
     <aside class="sidebar" aria-label="Echo display preview and household settings">
       <a class="brand" href="/" aria-label="Purr Nanny home"><span class="brand-icon" aria-hidden="true">✳</span><span>Purr Nanny<small>A little care, together.</small></span></a>
@@ -38,6 +50,7 @@
       <select id="recorder-select" aria-label="Current recorder" disabled><option value="">Choose a recorder…</option></select>
       <p class="hint">Records and follow-up updates include the recorder. Another family member may have performed the care. Queries show records from the whole household.</p>
       <div class="sidebar-actions">
+        <button id="add-pet" class="secondary" type="button" disabled>+ Add pet</button>
         <button id="today-shortcut" class="secondary" disabled>Today’s care <span aria-hidden="true">↗</span></button>
         <button id="vet-shortcut" class="secondary" disabled>Veterinary summary <span aria-hidden="true">↗</span></button>
         <button id="new-chat" class="text-button">Start a new conversation</button>

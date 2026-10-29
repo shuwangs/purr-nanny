@@ -1,4 +1,5 @@
 """Local chat facade; model credentials and MCP bearer remain server-side."""
+import hashlib
 import hmac
 import json
 import os
@@ -17,6 +18,7 @@ from starlette.staticfiles import StaticFiles
 
 from web.cards.resources import resource_html
 import web
+from server.mcp.contracts import AddCat
 from server.agent import Agent
 from server.backend import DomainError
 from storage.conversations import Conversations
@@ -44,6 +46,13 @@ class ChatMessage(BaseModel):
     cat_id: str | None = Field(default=None,max_length=128)
     recorded_by: str | None = Field(default=None,min_length=1,max_length=80)
     conversation_id: str | None = Field(default=None,max_length=128)
+
+
+class NewPet(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    request_id: str = Field(min_length=8, max_length=128)
+    name: str = Field(min_length=1, max_length=80)
+    meals_per_day: int | None = Field(default=None, strict=True, ge=1, le=12)
 
 
 def build_chat_app(*, agent, mapping, chat_password, mcp_token, allowed_hosts=None, recorders=None):
@@ -116,6 +125,25 @@ def build_chat_app(*, agent, mapping, chat_password, mcp_token, allowed_hosts=No
         except Exception:
             return error('mcp_unavailable','Start the MCP service and check its configured URL',503)
 
+    async def add_pet(request):
+        try:
+            parsed = NewPet.model_validate(await request.json())
+            key = 'pet-form:' + hashlib.sha256(parsed.request_id.encode()).hexdigest()
+            args = AddCat(name=parsed.name, meals_per_day=parsed.meals_per_day,
+                          idempotency_key=key).model_dump(mode='json', exclude_none=True)
+        except (ValueError, ValidationError):
+            return error('invalid_arguments', 'Enter a pet name (up to 80 characters) and optional meals per day (1–12).')
+        try:
+            result = await agent.gateway.call(bearer_context.get(), 'add_cat', args)
+            content = result['structuredContent']
+            if result['is_error']:
+                code = content.get('error', {}).get('code', 'save_failed')
+                return error(code, content.get('error', {}).get('message', 'Unable to save pet'),
+                             409 if code == 'idempotency_conflict' else 503 if code == 'internal_error' else 400)
+            return JSONResponse({'cat': content['cat']})
+        except Exception:
+            return error('mcp_unavailable', 'Could not confirm the save. Retry to check without adding a duplicate pet.', 503)
+
     async def respond(request, alias=False):
         try:
             raw = await request.json()
@@ -145,7 +173,7 @@ def build_chat_app(*, agent, mapping, chat_password, mcp_token, allowed_hosts=No
 
     app = Starlette(routes=[Route('/',homepage),Mount('/chat-assets',StaticFiles(directory=root)),
         Route('/apps/{view}.html',card),Route('/api/chat/login',login,methods=['POST']),Route('/api/chat/logout',logout,methods=['POST']),
-        Route('/api/chat/session',bootstrap),Route('/api/chat',alias_chat,methods=['POST']),
+        Route('/api/pets',add_pet,methods=['POST']),Route('/api/chat/session',bootstrap),Route('/api/chat',alias_chat,methods=['POST']),
         Route('/api/chat/sessions',create_session,methods=['POST']),Route('/api/chat/sessions/{conversation}',get_session),
         Route('/api/chat/sessions/{conversation}/messages',respond,methods=['POST'])])
 

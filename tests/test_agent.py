@@ -506,3 +506,33 @@ def test_short_answer_does_not_guess_enum_or_unprompted_fact():
     assert pending_boolean_answer(None,'no') is None
     assert pending_boolean_answer({'questions':[{'field':'eating'}]},'no') is None
     assert pending_boolean_answer({'questions':[{'field':'blood'}]},'no, maybe') is None
+
+
+def test_add_pet_form_through_authenticated_mcp(tmp_path):
+    mapping = BearerMapping({TOKEN:dict(household_id='home',timezone='America/Chicago')})
+    repository = SQLiteRepository(tmp_path/'records')
+    mcp_app = build_app(backend=RulesBackend(repository),mapping=mapping,clock=lambda:NOW)
+    def client_factory(**kwargs):
+        return httpx.AsyncClient(transport=httpx.ASGITransport(app=mcp_app),**kwargs)
+    model = Scripted([])
+    agent = Agent(Conversations(tmp_path/'chat'),model,MCPGateway('http://localhost:8000/mcp/',client_factory))
+    app = build_chat_app(agent=agent,mapping=mapping,chat_password='chat-password',mcp_token=TOKEN)
+    async def exercise():
+        async with mcp_app.router.lifespan_context(mcp_app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://testserver') as client:
+                payload = dict(name='  Luna  ',meals_per_day=2,request_id='create-luna-123')
+                assert (await client.post('/api/pets',json=payload)).status_code == 401
+                await client.post('/api/chat/login',json={'password':'chat-password'})
+                assert (await client.post('/api/pets',json=payload,headers={'Origin':'https://evil.example'})).status_code == 403
+                for invalid in [dict(name=' '),dict(meals_per_day=0),dict(meals_per_day=2.5),dict(household_id='other')]:
+                    assert (await client.post('/api/pets',json={**payload,**invalid})).status_code == 400
+                first = await client.post('/api/pets',json=payload)
+                assert first.status_code == 200
+                assert first.json()['cat']['name'] == 'Luna'
+                assert first.json()['cat']['meals_per_day'] == 2
+                assert (await client.post('/api/pets',json=payload)).json() == first.json()
+                assert (await client.post('/api/pets',json={**payload,'name':'Miso'})).status_code == 409
+                assert len(repository.list_cats('home')) == 1
+                assert repository.list_cats('other') == []
+                assert model.calls == 0
+    anyio.run(exercise)

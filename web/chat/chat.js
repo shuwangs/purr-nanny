@@ -4,7 +4,7 @@
   const el = id => document.getElementById(id);
   const messages = el('messages'), input = el('message-input'), catSelect = el('cat-select'), recorderSelect = el('recorder-select');
   const frames = new Map();
-  let busy = false, connected = false, conversationId = null, pending = null;
+  let busy = false, connected = false, conversationId = null, pending = null, pendingPet = null;
   const cardRoutes = {get_today:'/apps/today.html',get_vet_summary:'/apps/vet-summary.html'};
   const cardNames = {get_today:'Today’s care',get_vet_summary:'Veterinary summary'};
   function node(tag, text, cls) {
@@ -16,15 +16,16 @@
   function scrollToLatest() { messages.scrollTop = messages.scrollHeight; }
   function status(text) { el('request-status').textContent = text; }
   function controls() {
-    input.disabled = busy || !connected || !!pending;
+    el('add-pet').disabled = busy || !connected || !!pending;
+    input.disabled = busy || !connected || !!pending || !!pendingPet;
     el('send-message').disabled = input.disabled;
-    recorderSelect.disabled = busy || !!pending || !connected;
-    catSelect.disabled = busy || !!pending || !connected || catSelect.options.length < 2;
-    el('today-shortcut').disabled = busy || !!pending || !connected || !catSelect.value;
+    recorderSelect.disabled = input.disabled;
+    catSelect.disabled = input.disabled || catSelect.options.length < 2;
+    el('today-shortcut').disabled = input.disabled || !catSelect.value;
     el('vet-shortcut').disabled = el('today-shortcut').disabled;
-    el('new-chat').disabled = busy;
+    el('new-chat').disabled = busy || !!pendingPet;
     el('retry-message').disabled = busy;
-    for (const button of document.querySelectorAll('[data-message]')) button.disabled = busy || !!pending || !connected;
+    for (const button of document.querySelectorAll('[data-message]')) button.disabled = input.disabled;
   }
   function message(role, text) {
     el('welcome').hidden = true;
@@ -43,7 +44,7 @@
     }
     if (cats.some(cat => cat.cat_id === selected)) catSelect.value = selected;
     else if (cats.length === 1) catSelect.value = cats[0].cat_id;
-    el('cat-hint').textContent = cats.length ? 'Choose a cat to keep every observation in the right record.' : 'Start by telling me your cat’s name, for example: “Add a cat named Miso.”';
+    el('cat-hint').textContent = cats.length ? 'Choose a cat to keep every observation in the right record.' : 'Use Add pet to create your first cat profile.';
   }
   async function jsonRequest(url, options = {}) {
     const controller = new AbortController();
@@ -210,6 +211,46 @@
     const dialog = el('login-dialog'); if (!dialog.open) dialog.showModal();
     el('login-password').focus();
   }
+  el('add-pet').addEventListener('click', () => {
+    if (busy || pending || !connected) return;
+    el('pet-dialog').showModal();
+    (pendingPet ? el('pet-submit') : el('pet-name')).focus();
+  });
+  el('pet-cancel').addEventListener('click', () => el('pet-dialog').close());
+  el('pet-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !connected) return;
+    if (!pendingPet) {
+      const name = el('pet-name').value.trim(), meals = el('pet-meals').value;
+      if (!name || name.length > 80 || (meals && (!Number.isInteger(Number(meals)) || Number(meals) < 1 || Number(meals) > 12))) {
+        el('pet-status').textContent = 'Enter a name and optional whole-number meals per day from 1 to 12.'; return;
+      }
+      pendingPet = {name, request_id:crypto.randomUUID(), ...(meals ? {meals_per_day:Number(meals)} : {})};
+    }
+    busy = true; controls();
+    el('pet-submit').disabled = true; el('pet-cancel').disabled = true;
+    el('pet-name').disabled = true; el('pet-meals').disabled = true;
+    el('pet-status').textContent = 'Saving pet…';
+    try {
+      const data = await jsonRequest('/api/pets', {method:'POST', body:JSON.stringify(pendingPet)});
+      if (!data.cat?.cat_id || typeof data.cat.name !== 'string') throw Error('Could not confirm the saved profile. Retry to check.');
+      const cats = [...catSelect.options].filter(o => o.value && o.value !== data.cat.cat_id).map(o => ({cat_id:o.value,name:o.textContent}));
+      cats.push(data.cat); setCats(cats, data.cat.cat_id);
+      pendingPet = null; busy = false; resetConversation();
+      status(`${data.cat.name} was added. You can start recording their care.`);
+      el('pet-dialog').close(); el('pet-name').value = ''; el('pet-meals').value = ''; el('pet-status').textContent = '';
+    } catch (error) {
+      if (error.status === 400 || error.status === 409) pendingPet = null;
+      if (error.status === 401 || error.status === 403) { el('pet-dialog').close(); showLogin(); }
+      el('pet-status').textContent = error.message || 'Could not confirm the save. Retry to check.';
+    } finally {
+      busy = false; controls(); el('pet-submit').disabled = false; el('pet-cancel').disabled = false;
+      el('pet-name').disabled = !!pendingPet; el('pet-meals').disabled = !!pendingPet;
+      el('pet-submit').textContent = pendingPet ? 'Retry save' : 'Add pet';
+      el('pet-cancel').textContent = pendingPet ? 'Close' : 'Cancel';
+    }
+  });
+  el('pet-dialog').addEventListener('cancel', event => { if (busy) event.preventDefault(); });
   el('login-form').addEventListener('submit', async event => {
     event.preventDefault(); const passwordInput = el('login-password'), password = passwordInput.value;
     passwordInput.value = ''; el('login-submit').disabled = true; el('login-status').textContent = 'Connecting…';

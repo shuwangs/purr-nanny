@@ -15,16 +15,21 @@ class Element {
   text(){return [this.textContent,...this.children.map(e=>e.text())].join('\n');}
   async fire(type, values={}){return this.listeners[type]?.({preventDefault(){},...values});}
 }
-const ids = ['echo-content','echo-empty','messages','message-input','cat-select','recorder-select','request-status','welcome','send-message','today-shortcut','vet-shortcut','new-chat','retry-message','retry-row','cat-hint','connection','environment-label','chat-form','login-dialog','login-form','login-password','login-submit','login-status'];
+const ids = ['add-pet','pet-dialog','pet-form','pet-name','pet-meals','pet-status','pet-submit','pet-cancel','echo-content','echo-empty','messages','message-input','cat-select','recorder-select','request-status','welcome','send-message','today-shortcut','vet-shortcut','new-chat','retry-message','retry-row','cat-hint','connection','environment-label','chat-form','login-dialog','login-form','login-password','login-submit','login-status'];
 const nodes = Object.fromEntries(ids.map(id=>[id,new Element('div',id)]));
 nodes.messages.append(nodes.welcome);
-let onMessage;let fetches=[];let chatAttempts=0;let messageSerial=0;let sessionAuthorized=true;
+let petAttempts=0;let onMessage;let fetches=[];let chatAttempts=0;let messageSerial=0;let sessionAuthorized=true;
 const timers=new Map();let timerId=0;
 const document={getElementById:id=>nodes[id],createElement:tag=>new Element(tag),querySelectorAll:()=>[]};
 const fetch = async (url, options) => {
   const body=options.body && JSON.parse(options.body);fetches.push({url,body,options});
   if(url==='/api/chat/login'){sessionAuthorized=true;return {ok:true,json:async()=>({ok:true})};}
   if(url==='/api/chat/session')return {ok:sessionAuthorized,status:sessionAuthorized?200:401,json:async()=>sessionAuthorized?{cats:[{cat_id:'miso',name:'Miso'}],recorders:['Shu','Alex','Yuan'],mode_label:'Local test'}:{error:'unauthorized'}};
+  if(url==='/api/pets'){
+    petAttempts++;
+    if(petAttempts===1)throw Error('Response lost');
+    return {ok:true,json:async()=>({cat:{cat_id:'new-pet',name:body.name}})};
+  }
   if(url==='/api/chat'){
     chatAttempts++;
     if(chatAttempts===1)throw Error('Network response lost');
@@ -78,5 +83,20 @@ const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
   const login=fetches.find(f=>f.url==='/api/chat/login');
   assert.deepEqual(login.body,{password:'synthetic-chat-password-for-test'});
   assert.equal(login.body.token,undefined);
+  await nodes['add-pet'].fire('click');assert.equal(nodes['pet-dialog'].open,true);
+  nodes['pet-name'].value='   ';await nodes['pet-form'].fire('submit');
+  assert.equal(petAttempts,0);
+  nodes['pet-name'].value='  Luna  ';nodes['pet-meals'].value='2';
+  await nodes['pet-form'].fire('submit');
+  assert.equal(nodes['pet-dialog'].open,true);assert.equal(nodes['pet-name'].disabled,true);
+  assert.equal(nodes['pet-submit'].textContent,'Retry save');
+  assert.equal(nodes['send-message'].disabled,true);
+  await nodes['pet-form'].fire('submit');
+  const petRequests=fetches.filter(f=>f.url==='/api/pets');
+  assert.deepEqual(petRequests[0].body,petRequests[1].body);
+  assert.equal(petRequests[1].body.name,'Luna');assert.equal(petRequests[1].body.meals_per_day,2);
+  assert.equal(nodes['cat-select'].value,'new-pet');assert.equal(nodes['pet-dialog'].open,false);
+  assert.match(nodes['request-status'].textContent,/Luna was added/);
+  assert.equal(nodes['send-message'].disabled,false);
   console.log('Chat UI retry, session, login and card bridge assertions passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
