@@ -31,18 +31,22 @@ class DemoModel:
         if not cat:
             return ModelReply(text='Choose a cat in the sidebar first.')
         lower = text.lower()
+        feeding_words = r'喂了|喂食|\b(?:fed|feed|feeding)\b'
+        feeding_query = bool(re.search(r'(?:\b(?:did|has|have|was|when|whether)\b.*\b(?:feed|fed|eaten|feeding)\b|喂过.*[吗没]|吃过.*[吗没])', lower))
+        if re.search(feeding_words, lower) and not feeding_query and re.search(r"\b(?:will|going to|plan to|remind|should|don't|didn't|not|never)\b|打算|准备|提醒|没喂|没有喂", lower):
+            return ModelReply(text='Is this a completed feeding? Say “I fed Coco today at 10 am” after feeding. No feeding record has been saved.')
         food_change = bool(re.search(r'换粮|换了.*(?:粮|食物)|(?:chang(?:e|ed|ing)|switch(?:ed|ing)?)\b[^.!?\n]*\b(?:food|foofd|diet)\b',lower))
         name, args = None, {'cat_id': cat}
         if re.search(r'摘要|summary|兽医', lower):
             name = 'get_vet_summary'
             match = re.search(r'(\d+)\s*(?:天|days?)', lower)
             args['days'] = int(match[1]) if match else 30
-        elif not food_change and re.search(r'今天|today|喂过|吃过|喂药.*吗', lower) and not re.search(r'吐|vomit|threw up|吃得少|不吃|体重|weight|公斤|kg|喂了|喂食|\bfed\b|feeding', lower):
+        elif feeding_query or (not food_change and re.search(r'今天|today|喂过|吃过|喂药.*吗', lower) and not re.search(r'吐|vomit|threw up|吃得少|不吃|体重|weight|公斤|kg|喂了|喂食|\b(?:fed|feed|feeding)\b', lower)):
             name = 'get_today'
         else:
             from server.agent import BOOLEAN_PHRASES, ENUM_PHRASES, supported_detail
             pending = context.get('pending_follow_up')
-            event_type = 'food_change' if food_change else 'vomiting' if re.search(r'吐|vomit|threw up', lower) else 'appetite' if re.search(r'食欲|吃得少|不吃|eating', lower) else 'weight' if re.search(r'体重|weight|kg|公斤', lower) else 'feeding' if re.search(r'喂了|喂食|\bfed\b|feeding',lower) else None
+            event_type = 'food_change' if food_change else 'vomiting' if re.search(r'吐|vomit|threw up', lower) else 'appetite' if re.search(r'食欲|吃得少|不吃|eating', lower) else 'weight' if re.search(r'体重|weight|kg|公斤', lower) else 'feeding' if re.search(feeding_words,lower) else None
             continuing = bool(pending and event_type is None)
             if continuing:
                 event_type = pending['event_type']
@@ -81,5 +85,13 @@ class DemoModel:
             performers = [person for person in context.get('recorders',[]) if supported_performer(person,text,text,context.get('recorded_by'))]
             if len(performers)==1:
                 args.update(performed_by=performers[0],performed_by_evidence=text)
+            if not continuing:
+                time_match = re.search(r'\b(?:at\s+)?(?:1[0-2]|0?[1-9])(?::[0-5]\d)?\s*[ap]\.?m\.?(?!\w)', text, re.I)
+                if re.search(r'\byesterday\b|\btomorrow\b|\blast\b|\bago\b|昨天|明天|前天|\d{4}-\d{2}-\d{2}', lower):
+                    args['occurred_at_evidence'] = text
+                elif time_match:
+                    args['occurred_at_evidence'] = time_match.group()
+                elif re.search(r'\bat\s+\d|\d+\s*(?:点|时)', lower):
+                    args['occurred_at_evidence'] = text
             args.update(event_type=event_type, details=details, detail_evidence={f: text for f in details}, continue_event=continuing)
         return ModelReply(calls=[{'id': uuid.uuid4().hex, 'name': name, 'arguments': args}])

@@ -37,7 +37,7 @@
         <div class="echo-camera" aria-hidden="true"></div>
         <div class="echo-screen">
           <div id="echo-empty" class="echo-empty"><span class="echo-app">✳ &nbsp; Purr Nanny</span><div class="echo-orbit" aria-hidden="true">✳</div><h3>Care, all together.</h3><p>Ask about today’s care or prepare a veterinary summary to see it on this screen.</p><span class="echo-ready">Ready for your next care moment</span></div>
-          <div id="echo-content" aria-live="polite"></div>
+          <div id="echo-content" aria-live="polite"></div><p id="echo-status" class="echo-status" role="status"></p>
         </div>
         <div class="echo-light" aria-hidden="true"></div>
       </div>
@@ -66,6 +66,8 @@
       <div class="composer-area">
         <p id="request-status" class="request-status" role="status"></p>
         <div class="retry-row" id="retry-row" hidden><button id="retry-message" class="secondary">Retry the same message</button><p>The same request ID is reused to avoid a duplicate record.</p></div>
+        <div class="voice-toolbar"><label for="voice-language">Voice language</label><select id="voice-language"><option value="en-US">English (US)</option><option value="zh-CN">中文（普通话）</option></select><button id="voice-input" class="secondary" type="button" aria-pressed="false" disabled>Start voice input</button></div><p id="voice-status" class="voice-status" role="status">Voice text appears below for review before sending.</p>
+        <div id="voice-alternatives" class="voice-alternatives" aria-label="Voice transcript suggestions" hidden></div>
         <form id="chat-form" class="composer"><label class="sr-only" for="message-input">Message Purr Nanny</label><textarea id="message-input" rows="2" maxlength="4000" placeholder="Tell me what happened, or ask about today’s care…" disabled></textarea><button id="send-message" type="submit" aria-label="Send message" disabled><span aria-hidden="true">↑</span></button></form>
         <p class="composer-note">Observations, not diagnoses. For urgent concerns, contact a veterinarian directly.<span>Enter to send · Shift + Enter for a new line</span></p>
       </div>

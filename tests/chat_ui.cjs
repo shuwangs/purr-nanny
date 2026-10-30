@@ -15,7 +15,7 @@ class Element {
   text(){return [this.textContent,...this.children.map(e=>e.text())].join('\n');}
   async fire(type, values={}){return this.listeners[type]?.({preventDefault(){},...values});}
 }
-const ids = ['add-pet','pet-dialog','pet-form','pet-name','pet-meals','pet-status','pet-submit','pet-cancel','echo-content','echo-empty','messages','message-input','cat-select','recorder-select','request-status','welcome','send-message','today-shortcut','vet-shortcut','new-chat','retry-message','retry-row','cat-hint','connection','environment-label','chat-form','login-dialog','login-form','login-password','login-submit','login-status'];
+const ids = ['voice-alternatives','voice-input','voice-language','voice-status','echo-status','add-pet','pet-dialog','pet-form','pet-name','pet-meals','pet-status','pet-submit','pet-cancel','echo-content','echo-empty','messages','message-input','cat-select','recorder-select','request-status','welcome','send-message','today-shortcut','vet-shortcut','new-chat','retry-message','retry-row','cat-hint','connection','environment-label','chat-form','login-dialog','login-form','login-password','login-submit','login-status'];
 const nodes = Object.fromEntries(ids.map(id=>[id,new Element('div',id)]));
 nodes.messages.append(nodes.welcome);
 let petAttempts=0;let onMessage;let fetches=[];let chatAttempts=0;let messageSerial=0;let sessionAuthorized=true;
@@ -37,13 +37,53 @@ const fetch = async (url, options) => {
   }
   throw Error('Unexpected URL');
 };
-const window={addEventListener:(type,fn)=>onMessage=fn};
+let speech;
+class SpeechRecognition { constructor(){speech=this;this.phrases=[];} start(){} stop(){this.onend();} abort(){} }
+const window={SpeechRecognition,SpeechRecognitionPhrase:class {constructor(phrase,boost){this.phrase=phrase;this.boost=boost;}},addEventListener:(type,fn)=>onMessage=fn};
 function Option(text,value){const n=new Element('option');n.textContent=text;n.value=value;return n;}
 vm.runInNewContext(fs.readFileSync('web/chat/chat.js','utf8'),{window,document,Option,fetch,AbortController,crypto:{randomUUID:()=>`request-${++messageSerial}`},setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id)});
 const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
 (async()=>{
   await settle();assert.equal(nodes.connection.textContent,'Ready');assert.equal(nodes['cat-select'].value,'miso');
   nodes['recorder-select'].value='Shu';
+  nodes['voice-language'].value='en-US';
+  await nodes['voice-input'].fire('click');
+  assert.equal(speech.maxAlternatives,5); assert.deepEqual(speech.phrases,[]); // Do not send experimental hints to remote services.
+  speech.onresult({resultIndex:0,results:[Object.assign([{transcript:'are fed miso at 10 a.m.'},{transcript:'I fed Miso at 10 a.m.'}],{isFinal:true})]});
+  await nodes['voice-input'].fire('click');
+  assert.equal(nodes['message-input'].value,'are fed miso at 10 a.m.');
+  assert.equal(nodes['voice-alternatives'].hidden,false);
+  await nodes['voice-alternatives'].children[0].fire('click');
+  assert.equal(nodes['message-input'].value,'I fed Miso at 10 a.m.');
+  assert.match(nodes['echo-content'].text(),/I fed Miso/);
+  assert.equal(fetches.filter(f=>f.url==='/api/chat').length,0);
+  nodes['message-input'].value='';
+
+  nodes['voice-language'].value='zh-CN'; nodes['message-input'].value='Existing draft';
+  await nodes['voice-input'].fire('click');
+  assert.equal(speech.lang,'zh-CN'); assert.equal(nodes['send-message'].disabled,true);
+  speech.onresult({resultIndex:0,results:[Object.assign([{transcript:'猫刚吐了'}],{isFinal:false})]});
+  assert.match(nodes['echo-content'].text(),/猫刚吐了/);
+  assert.equal(nodes['message-input'].value,'Existing draft');
+  speech.onresult({resultIndex:0,results:[Object.assign([{transcript:'猫刚吐了'}],{isFinal:true})]});
+  await nodes['voice-input'].fire('click');
+  assert.equal(nodes['message-input'].value,'Existing draft 猫刚吐了');
+  assert.equal(fetches.filter(f=>f.url==='/api/chat').length,0);
+  assert.equal(nodes['send-message'].disabled,false);
+  await nodes['voice-input'].fire('click');
+  speech.onerror({error:'not-allowed'}); speech.onend();
+  assert.match(nodes['voice-status'].textContent,/denied/);
+  assert.match(nodes['message-input'].value,/Existing draft/);
+
+  await nodes['voice-input'].fire('click');
+  speech.onerror({error:'service-not-allowed'}); speech.onend();
+  assert.match(nodes['voice-status'].textContent,/speech recognition service/);
+  assert.equal(nodes['voice-input'].disabled,false);
+  assert.match(nodes['message-input'].value,/Existing draft/);
+  await nodes['voice-input'].fire('click');
+  speech.onerror({error:'unexpected-service-error'}); speech.onend();
+  assert.match(nodes['voice-status'].textContent,/unexpected-service-error/);
+
   nodes['message-input'].value='Miso vomited';await nodes['chat-form'].fire('submit');await settle();
   assert.equal(nodes['retry-row'].hidden,false);assert.equal(nodes['send-message'].disabled,true);
   assert.equal(nodes.messages.children.filter(n=>n.className==='message user').length,1);
@@ -63,6 +103,9 @@ const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
   assert.ok(assistant.text().indexOf('Urgent guidance') < assistant.text().indexOf('<img'));
   assert.ok(assistant.text().indexOf('Urgent guidance') < assistant.text().indexOf('Was there blood?'));
   assert.equal(nodes['echo-empty'].hidden,true);
+  assert.match(nodes['echo-content'].text(),/Emergency guidance/);
+  assert.match(nodes['echo-content'].text(),/Was there blood/);
+  assert.match(nodes['echo-content'].text(),/<img src=x/);
   const shell=nodes['echo-content'].children.find(n=>n.className==='card-shell'), frame=shell.children.find(n=>n.tag==='iframe');
   assert.equal(frame.src,'/apps/today.html');assert.equal(frame.attributes.sandbox,'allow-scripts');
   onMessage({source:{},data:{jsonrpc:'2.0',id:'init',method:'ui/initialize'}});assert.equal(frame.contentWindow.sent.length,0);

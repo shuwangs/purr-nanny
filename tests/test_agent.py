@@ -536,3 +536,44 @@ def test_add_pet_form_through_authenticated_mcp(tmp_path):
                 assert repository.list_cats('other') == []
                 assert model.calls == 0
     anyio.run(exercise)
+
+
+@pytest.mark.parametrize('word', ['feed', 'fed'])
+def test_demo_feeding_at_clock_time(tmp_path, word):
+    from server.models.demo import DemoModel
+    from zoneinfo import ZoneInfo
+    backend,cats,store,gateway = qa_agent(tmp_path)
+    async def exercise():
+        result = await Agent(store,DemoModel(),gateway,clock=lambda:NOW).chat(
+            PRINCIPAL,TOKEN,store.create('home'),'spoken-feed',f'I {word} Mochi at 10 am',cats[0],recorded_by='Shu',require_recorder=True,recorders=['Shu'])
+        event = result['tool_results'][0]['structuredContent']['event']
+        assert event['event_type'] == 'feeding'
+        assert datetime.fromisoformat(event['occurred_at'].replace('Z','+00:00')).astimezone(ZoneInfo('America/Chicago')).hour == 10
+        assert event['performed_by'] == 'Shu'
+        assert len(backend.repository.list_events('home',cats[0])) == 1
+    anyio.run(exercise)
+
+
+@pytest.mark.parametrize('text', ['I will feed Mochi at 10 am', "I did not feed Mochi", 'Did I feed Mochi today?', 'I fed Mochi yesterday at 10 am', 'I feed Mochi at 10 pm'])
+def test_demo_feeding_noncompleted_or_unclear_does_not_write(tmp_path, text):
+    from server.models.demo import DemoModel
+    backend,cats,store,gateway = qa_agent(tmp_path)
+    async def exercise():
+        await Agent(store,DemoModel(),gateway,clock=lambda:NOW).chat(
+            PRINCIPAL,TOKEN,store.create('home'),'not-a-feeding',text,cats[0],recorded_by='Shu',recorders=['Shu'])
+        assert not backend.repository.list_events('home',cats[0])
+    anyio.run(exercise)
+
+
+@pytest.mark.parametrize('phrase', ['10', 'at 10', 'today at 10', 'today at 10:30'])
+def test_ambiguous_clock_asks_only_for_meridiem(phrase):
+    from server.agent import observation_time
+    from server.backend import DomainError
+    with pytest.raises(DomainError, match='AM or PM today'):
+        observation_time(phrase, f'I feed Coco {phrase}', NOW, 'America/Chicago')
+
+
+def test_today_clock_uses_household_timezone():
+    from server.agent import observation_time
+    assert observation_time('today at 10am', 'I feed Coco today at 10am', NOW,
+                            'America/Chicago') == '2026-10-12T10:00:00-05:00'
