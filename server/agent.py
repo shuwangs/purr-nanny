@@ -95,7 +95,7 @@ def supported_detail(field, value, quote, message):
 def supported_performer(person, quote, message, recorder):
     if not isinstance(person,str) or not person.strip() or not isinstance(quote,str) or quote not in message:
         return False
-    verbs = r'(?:fed|gave|cleaned|weighed|performed|喂|清理|称|换|执行)'
+    verbs = r'(?:fed\b|feed\b|gave|cleaned|weighed|performed|喂|清理|称|换|执行)'
     actor = re.escape(person)
     # Name must occur as the actor of a supported care action, not merely somewhere in input.
     named = re.search(r'(?<!\w)'+actor+r'\s*(?:今天|刚刚|刚才|today)?\s*'+verbs,quote,re.I)
@@ -109,6 +109,19 @@ def observation_time(quote, message, now, zone):
         return None
     if quote.strip().lower() in ('today','now','今天','现在','刚刚'):
         return now.isoformat()
+    time_phrase = re.sub(r'^today\s+(?:at\s+)?', '', quote.strip(), flags=re.I)
+    ambiguous_clock = re.fullmatch(r'(?:at\s+)?(1[0-2]|0?[1-9])(?::([0-5]\d))?', time_phrase, re.I)
+    if ambiguous_clock:
+        raise DomainError('time_clarification_required',
+                          f'Did you mean {ambiguous_clock[0].removeprefix("at ")} AM or PM today? No record was saved yet.')
+    clock = re.fullmatch(r'(?:at\s+)?(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*([ap])\.?m\.?', time_phrase, re.I)
+    if clock:
+        local = now.astimezone(ZoneInfo(zone))
+        hour = int(clock[1]) % 12 + (12 if clock[3].lower() == 'p' else 0)
+        parsed = local.replace(hour=hour, minute=int(clock[2] or 0), second=0, microsecond=0)
+        if parsed <= local:
+            return parsed.isoformat()
+        raise DomainError('time_clarification_required', 'That time is later today. Please clarify when the completed observation happened; no record was saved.')
     # Fully specified ISO times carry their own date, clock and offset.
     try:
         parsed = datetime.fromisoformat(quote.strip().replace('Z','+00:00'))

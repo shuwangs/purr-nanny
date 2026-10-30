@@ -4,6 +4,59 @@
   const el = id => document.getElementById(id);
   const messages = el('messages'), input = el('message-input'), catSelect = el('cat-select'), recorderSelect = el('recorder-select');
   const frames = new Map();
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null, listening = false, voiceDraft = '', voiceFinal = '', voiceGeneration = 0;
+  function clearVoiceChoices() { el('voice-alternatives').replaceChildren(); el('voice-alternatives').hidden = true; }
+  function voiceChoices(choices) {
+    clearVoiceChoices();
+    for (const text of [...new Set(choices)].filter(t => t && t !== input.value).slice(0, 5)) {
+      const button = node('button', 'Use: ' + text, 'secondary'); button.type = 'button';
+      button.disabled = listening;
+      button.addEventListener('click', () => {
+        if (input.disabled) return;
+        input.value = text; clearVoiceChoices(); syncDisplay('draft', text);
+        status('Suggested transcript selected. Check the pet, action and time before sending.'); input.focus();
+      });
+      el('voice-alternatives').append(button);
+    }
+    el('voice-alternatives').hidden = !el('voice-alternatives').children.length;
+  }
+  // Suggestions only: never silently rewrite a health or care record.
+  function feedingSuggestion(text) {
+    const pet = [...catSelect.options].find(option => option.value && option.value === catSelect.value)?.textContent;
+    if (!pet || !/^[a-z]+$/i.test(pet)) return null;
+    const match = text.match(/^(?:i|eye|are)\s+fed\s+([a-z]+)\b(.*)$/i);
+    if (!match) return null;
+    const a = match[1].toLowerCase(), b = pet.toLowerCase();
+    const row = Array.from({length:b.length + 1}, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      let diagonal = row[0]; row[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const previous = row[j]; row[j] = Math.min(row[j] + 1, row[j-1] + 1, diagonal + (a[i-1] === b[j-1] ? 0 : 1)); diagonal = previous;
+      }
+    }
+    if (a !== b && (Math.min(a.length,b.length) < 3 || row[b.length] > 1)) return null;
+    return 'I fed ' + pet + match[2];
+  }
+  function clearDisplay() {
+    for (const entry of frames.values()) clearTimeout(entry.timer);
+    frames.clear(); el('echo-content').replaceChildren(); el('echo-empty').hidden = true;
+  }
+  function syncDisplay(role, text, signals = [], extras = []) {
+    clearDisplay();
+    const summary = node('section', undefined, 'echo-conversation');
+    summary.append(node('span', role === 'draft' ? 'VOICE DRAFT · NOT SENT' : role === 'user' ? 'YOU · AWAITING RESPONSE' : 'PURR NANNY · LATEST RESPONSE', 'eyebrow'));
+    for (const signal of signals) summary.append(node('p', signal.text, 'safety-signals'));
+    summary.append(node('p', text, 'message-text'));
+    for (const extra of extras) summary.append(node('p', extra.text, 'follow-up'));
+    el('echo-content').append(summary); el('echo-content').parentElement && (el('echo-content').parentElement.scrollTop = 0);
+  }
+  function stopVoice(discard = false) {
+    if (!recognition) return;
+    if (discard) { voiceGeneration++; recognition.abort(); recognition = null; listening = false; controls(); }
+    else recognition.stop();
+  }
+
   let busy = false, connected = false, conversationId = null, pending = null, pendingPet = null;
   const cardRoutes = {get_today:'/apps/today.html',get_vet_summary:'/apps/vet-summary.html'};
   const cardNames = {get_today:'Today’s care',get_vet_summary:'Veterinary summary'};
@@ -14,17 +67,22 @@
     return n;
   }
   function scrollToLatest() { messages.scrollTop = messages.scrollHeight; }
-  function status(text) { el('request-status').textContent = text; }
+  function status(text) { el('request-status').textContent = text; el('echo-status').textContent = text; }
   function controls() {
-    el('add-pet').disabled = busy || !connected || !!pending;
-    input.disabled = busy || !connected || !!pending || !!pendingPet;
+    el('add-pet').disabled = busy || !connected || !!pending || listening;
+    input.disabled = busy || !connected || !!pending || !!pendingPet || listening;
+    el('voice-input').disabled = !Recognition || busy || !connected || !!pending || !!pendingPet;
+    el('voice-input').textContent = listening ? 'Stop listening' : 'Start voice input';
+    el('voice-input').setAttribute('aria-pressed', String(listening));
+    el('voice-language').disabled = listening || busy; 
     el('send-message').disabled = input.disabled;
     recorderSelect.disabled = input.disabled;
     catSelect.disabled = input.disabled || catSelect.options.length < 2;
     el('today-shortcut').disabled = input.disabled || !catSelect.value;
     el('vet-shortcut').disabled = el('today-shortcut').disabled;
-    el('new-chat').disabled = busy || !!pendingPet;
+    el('new-chat').disabled = busy || !!pendingPet || listening;
     el('retry-message').disabled = busy;
+    for (const button of el('voice-alternatives').children) button.disabled = input.disabled;
     for (const button of document.querySelectorAll('[data-message]')) button.disabled = input.disabled;
   }
   function message(role, text) {
@@ -64,10 +122,6 @@
     const route = cardRoutes[tool];
     if (!route || !result || result.schema_version !== '1.0') return;
     const display = el('echo-content');
-    if (display) {
-      for (const entry of frames.values()) clearTimeout(entry.timer);
-      frames.clear(); display.replaceChildren(); el('echo-empty').hidden = true;
-    }
     const shell = node('section', undefined, 'card-shell');
     const heading = node('div', undefined, 'card-heading');
     heading.append(node('h3', cardNames[tool]), node('span', 'Shared care record'));
@@ -153,7 +207,9 @@
       for (const q of [...questions.values()].sort((a,b) => (b.priority || 0)-(a.priority || 0))) box.append(node('p',q.text));
       body.append(box);
     }
-    for (const item of data.results) addCard(body, item.tool, item.structuredContent);
+    syncDisplay('assistant', data.reply, prioritySignals.map(([, signal]) => signal), [...questions.values()]);
+    const card = [...data.results].reverse().find(item => !item.is_error && cardRoutes[item.tool] && item.structuredContent?.schema_version === '1.0');
+    if (card) addCard(body, card.tool, card.structuredContent);
     if (Array.isArray(data.cats)) setCats(data.cats, catSelect.value);
     // Keep the reply and priority signals visible above a potentially long care card.
     const row = body.parentElement;
@@ -161,11 +217,12 @@
     else scrollToLatest();
   }
   async function send(text, retry = false) {
-    if (busy || !connected) return;
+    if (busy || !connected || listening) return;
     if (!retry) {
       if (pending || !text.trim()) return;
       pending = {message:text.trim(), ...(recorderSelect.value ? {recorded_by:recorderSelect.value} : {}), request_id:crypto.randomUUID(), ...(catSelect.value ? {cat_id:catSelect.value} : {}), ...(conversationId ? {conversation_id:conversationId} : {})};
-      message('user', text.trim()); input.value = '';
+      clearVoiceChoices();
+      message('user', text.trim()); syncDisplay('user', text.trim()); input.value = '';
     }
     if (!pending) return;
     busy = true; controls(); el('retry-row').hidden = true; status('Purr Nanny is checking the shared record…');
@@ -180,7 +237,7 @@
     } finally { busy = false; controls(); if (!pending) input.focus(); }
   }
   async function connect() {
-    connected = false; controls(); status('Connecting to the household care service…');
+    stopVoice(true); connected = false; controls(); status('Connecting to the household care service…');
     try {
       const data = await jsonRequest('/api/chat/session');
       if (!Array.isArray(data.cats)) throw Error('Unable to load the household’s cat profiles.');
@@ -199,6 +256,7 @@
   }
   function resetConversation() {
     if (busy) return;
+    stopVoice(true); clearVoiceChoices();
     conversationId = null; pending = null;
     for (const item of frames.values()) clearTimeout(item.timer);
     frames.clear();
@@ -208,6 +266,7 @@
     el('retry-row').hidden = true; controls(); input.focus();
   }
   function showLogin() {
+    stopVoice(true);
     const dialog = el('login-dialog'); if (!dialog.open) dialog.showModal();
     el('login-password').focus();
   }
@@ -263,12 +322,72 @@
   });
   el('chat-form').addEventListener('submit', event => { event.preventDefault(); send(input.value); });
   input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(input.value); } });
+  input.addEventListener('input', () => { clearVoiceChoices(); if (!input.disabled) syncDisplay('draft', input.value || 'Your draft is empty.'); });
   el('retry-message').addEventListener('click', () => pending ? send('',true) : connect());
   el('new-chat').addEventListener('click', resetConversation);
   catSelect.addEventListener('change', resetConversation);
   el('today-shortcut').addEventListener('click', () => send('What happened today?'));
   el('vet-shortcut').addEventListener('click', () => send('Show the veterinary summary for the last 7 days'));
   for (const button of document.querySelectorAll('[data-message]')) button.addEventListener('click', () => send(button.dataset.message));
+  el('voice-input').addEventListener('click', () => {
+    if (listening) { stopVoice(); return; }
+    if (!Recognition || input.disabled) return;
+    voiceDraft = input.value; voiceFinal = ''; clearVoiceChoices();
+    let candidates = [];
+    const generation = ++voiceGeneration;
+    const session = new Recognition(); recognition = session;
+    session.lang = el('voice-language').value || 'en-US';
+    session.continuous = false; session.interimResults = true; session.maxAlternatives = 5;
+    // Browser API exposure does not guarantee the remote service supports
+    // contextual phrases. Keep dictation compatible with those services.
+    session.onresult = event => {
+      if (generation !== voiceGeneration) return;
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const prefix = voiceFinal;
+          voiceFinal += event.results[i][0].transcript + ' ';
+          candidates = candidates.map(text => (text + ' ' + event.results[i][0].transcript).trim());
+          for (let j = 1; j < event.results[i].length; j++) candidates.push((prefix + event.results[i][j].transcript).trim());
+        }
+        else interim += event.results[i][0].transcript;
+      }
+      input.value = [voiceDraft, voiceFinal.trim()].filter(Boolean).join(' ');
+      const preview = [input.value, interim].filter(Boolean).join(' ');
+      el('voice-status').textContent = interim ? 'Hearing: ' + interim : 'Transcript ready. Review and press Send.';
+      syncDisplay('draft', preview || 'Listening…');
+    };
+    session.onerror = event => {
+      if (generation !== voiceGeneration) return;
+      const errors = {'not-allowed':'Microphone access was denied. Allow it in browser settings or type your message.', 'service-not-allowed':'This browser cannot use its speech recognition service. Open this page in Chrome or Safari and allow microphone access.', 'phrases-not-supported':'The speech service rejected contextual hints. Reload this page and try again.', aborted:'Voice input was interrupted. Try again; your draft is preserved.', 'audio-capture':'No microphone is available. Connect one or type your message.', network:'Speech recognition could not connect. Try again or type your message.', 'no-speech':'No speech detected. Try again or type your message.', 'language-not-supported':'This voice language is unavailable. Choose another language or type your message.'};
+      el('voice-status').textContent = errors[event.error] || 'Voice input failed (' + (event.error || 'unknown error') + '). Your draft is preserved; try again or type instead.';
+      status(el('voice-status').textContent);
+    };
+    session.onend = () => {
+      if (generation !== voiceGeneration) return;
+      recognition = null; listening = false; controls(); input.focus();
+      // Interim recognition is never submitted or treated as a final transcript.
+      syncDisplay('draft', input.value || 'No transcript. Type a message or try voice input again.');
+      if (!voiceFinal.trim() && el('voice-status').textContent.startsWith('Listening')) { el('voice-status').textContent = 'No speech detected. Try again or type your message.'; status(el('voice-status').textContent); }
+      if (voiceFinal.trim()) {
+        const suggestion = session.lang.startsWith('en') ? feedingSuggestion(voiceFinal.trim()) : null;
+        voiceChoices([...candidates, ...(suggestion ? [suggestion] : [])].map(text => [voiceDraft, text].filter(Boolean).join(' ')));
+        el('voice-status').textContent = 'Check the transcript' + (el('voice-alternatives').hidden ? ' or edit it below.' : ' or choose a suggestion below.') + ' You can also select 中文 and speak Mandarin.';
+        status('Voice draft ready for review. Nothing has been submitted.');
+      }
+    };
+    try {
+      listening = true; controls(); session.start();
+      el('voice-status').textContent = 'Listening… Speak, then stop to review your message.';
+      status('Listening… Nothing is saved until you press Send.');
+      syncDisplay('draft', input.value || 'Listening…');
+    } catch (_) {
+      recognition = null; listening = false; controls();
+      el('voice-status').textContent = 'Unable to start voice input. Try again or type your message.';
+      status(el('voice-status').textContent);
+    }
+  });
+  if (!Recognition) el('voice-status').textContent = 'Voice input is unavailable in this browser. You can still type your message.';
   window.CatNannyChat = {connect};
   connect();
 })();
